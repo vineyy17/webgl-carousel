@@ -17,7 +17,7 @@ html {
 body {
   font-family: $font-manrope;
   overflow-x: hidden;
-  background-color: $primary-bg !important;
+  background-color: #000000;
   background-image: url('../../src/assets/noise.webp');
   height: 100vh;
   user-select: none;
@@ -30,7 +30,7 @@ h4 {
 }
 a,
 p {
-  color: $col-black;
+  color: #ffffff;
   font-size: toRem(22);
   font-weight: 400;
   line-height: 2.2rem;

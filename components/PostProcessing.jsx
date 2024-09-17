@@ -7,15 +7,15 @@ import { useControls } from 'leva';
 const PostProcessing = forwardRef((_, ref) => {
   const { viewport } = useThree();
 
-  const { active, ior } = useControls({
+  const { active } = useControls({
     active: {
       value: true,
     },
-    ior: {
-      value: 0.9,
-      min: 0.8,
-      max: 1.2,
-    },
+    // ior: {
+    //   value: 0.9,
+    //   min: 0.8,
+    //   max: 1.2,
+    // },
   });
 
   return active ? (
