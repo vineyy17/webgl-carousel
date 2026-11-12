@@ -1,0 +1,143 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #f2f0eb;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.App {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+.chrome {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  pointer-events: none;
+}
+
+.chrome-title {
+  margin: 0;
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.chrome-hint {
+  margin: 0;
+  max-width: 14rem;
+  text-align: right;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(242, 240, 235, 0.45);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+
+  &.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .chrome {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chrome-hint {
+    text-align: left;
+  }
+}
+
+/* —— Scene loader —— */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: #070707;
+  transition: opacity 0.55s ease, visibility 0.55s ease;
+  pointer-events: none;
+}
+
+.loader.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.loader.is-done {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.loader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 12rem;
+}
+
+.loader-label {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(242, 240, 235, 0.55);
+}
+
+.loader-track {
+  width: 11rem;
+  height: 1px;
+  overflow: hidden;
+  background: rgba(242, 240, 235, 0.12);
+}
+
+.loader-fill {
+  height: 100%;
+  background: #f2f0eb;
+  transition: width 0.2s ease;
+}
+
+.loader-pct {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: rgba(242, 240, 235, 0.4);
+}

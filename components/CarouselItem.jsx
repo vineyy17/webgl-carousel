@@ -12,6 +12,7 @@ const CarouselItem = ({
   item,
 }) => {
   const $root = useRef();
+  const $inner = useRef();
   const [hover, setHover] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isCloseActive, setCloseActive] = useState(false);
@@ -20,32 +21,31 @@ const CarouselItem = ({
 
   useEffect(() => {
     if (activePlane === index) {
-      setIsActive(activePlane === index);
+      setIsActive(true);
       setCloseActive(true);
     } else {
-      setIsActive(null);
+      setIsActive(false);
     }
-  }, [activePlane]);
+  }, [activePlane, index]);
 
   useEffect(() => {
     gsap.killTweensOf($root.current.position);
     gsap.to($root.current.position, {
-      z: isActive ? 0 : -0.01,
+      z: isActive ? 0.01 : $root.current.position.z,
       duration: 0.2,
       ease: 'power3.out',
-      delay: isActive ? 0 : 2,
+      delay: isActive ? 0 : 1.2,
     });
   }, [isActive]);
 
-  /*------------------------------
-  Hover effect
-  ------------------------------*/
+  /* Hover scales inner mesh only — parent scale is owned by the coverflow */
   useEffect(() => {
-    const hoverScale = hover && !isActive ? 1.1 : 1;
-    gsap.to($root.current.scale, {
+    if (!$inner.current) return;
+    const hoverScale = hover && !isActive ? 1.04 : 1;
+    gsap.to($inner.current.scale, {
       x: hoverScale,
       y: hoverScale,
-      duration: 0.5,
+      duration: 0.4,
       ease: 'power3.out',
     });
   }, [hover, isActive]);
@@ -58,7 +58,7 @@ const CarouselItem = ({
     clearTimeout(timeoutID.current);
     timeoutID.current = setTimeout(() => {
       setCloseActive(false);
-    }, 1500); // The duration of this timer depends on the duration of the plane's closing animation.
+    }, 1500);
   };
 
   return (
@@ -70,17 +70,19 @@ const CarouselItem = ({
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
     >
-      <Plane
-        width={width}
-        height={height}
-        texture={item.image}
-        active={isActive}
-      />
+      <group ref={$inner}>
+        <Plane
+          width={width}
+          height={height}
+          texture={item.image}
+          active={isActive}
+        />
+      </group>
 
       {isCloseActive ? (
         <mesh position={[0, 0, 0.01]} onClick={handleClose}>
           <planeGeometry args={[viewport.width, viewport.height]} />
-          <meshBasicMaterial transparent={true} opacity={0} color={'red'} />
+          <meshBasicMaterial transparent opacity={0} />
         </mesh>
       ) : null}
     </group>

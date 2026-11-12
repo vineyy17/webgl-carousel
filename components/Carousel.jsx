@@ -4,135 +4,222 @@ import { usePrevious } from 'react-use';
 import gsap from 'gsap';
 import PostProcessing from './PostProcessing';
 import CarouselItem from './CarouselItem';
-import { lerp, getPiramidalIndex } from '../utils';
+import { useWave } from './WaveContext';
+import { lerp, wrapIndex, wrappedDelta } from '../utils';
 import images from '../data/images';
 
-/*------------------------------
-Plane Settings
-------------------------------*/
+/* Compact planes — middle is smallest, neighbors grow outward */
 const planeSettings = {
-  width: 2,
-  height: 2.5,
-  gap: 0.1,
+  width: 1.05,
+  height: 1.35,
+  gap: 0.28,
 };
 
-/*------------------------------
-Gsap Defaults
-------------------------------*/
+const COUNT = images.length;
+
 gsap.defaults({
-  duration: 2.5,
+  duration: 1.0,
   ease: 'power3.out',
 });
 
-/*------------------------------
-Carousel
-------------------------------*/
 const Carousel = () => {
   const [$root, setRoot] = useState();
   const $post = useRef();
+  const wave = useWave();
 
   const [activePlane, setActivePlane] = useState(null);
   const prevActivePlane = usePrevious(activePlane);
   const { viewport } = useThree();
 
-  /*--------------------
-    Vars
-    --------------------*/
   const progress = useRef(0);
+  const target = useRef(0);
+  const velocity = useRef(0);
   const startX = useRef(0);
   const isDown = useRef(false);
-  const speedWheel = 0.005; // Reduced for softer scrolling
-  const speedDrag = -0.1; // Reduced for smoother dragging
   const oldProgress = useRef(0);
   const speed = useRef(0);
+  const reducedMotion = useRef(false);
+
+  const speedWheel = 0.0032;
+  const speedDrag = -0.005;
+
   const $items = useMemo(() => {
     if ($root) return $root.children;
   }, [$root]);
 
-  /*--------------------
-    Diaplay Items
-    --------------------*/
-  const displayItems = (item, index, active) => {
-    const piramidalIndex = getPiramidalIndex($items, active)[index];
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    reducedMotion.current = mq.matches;
+    const onChange = () => {
+      reducedMotion.current = mq.matches;
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  /**
+   * Even edge-to-edge gaps: layout from the focused slide outward using
+   * each plane's half-width × scale + a constant gap. Center stays slightly
+   * smaller; neighbors grow — without the old fixed stride that looked uneven.
+   */
+  const layoutForActive = (active) => {
+    const scaleOf = (dist) => Math.min(0.82 + dist * 0.1, 1.08);
+    const halfW = (scale) => (planeSettings.width * scale) / 2;
+    const gap = planeSettings.gap;
+
+    const deltas = Array.from({ length: COUNT }, (_, i) =>
+      wrappedDelta(i, active, COUNT),
+    );
+    const scales = deltas.map((d) => scaleOf(Math.abs(d)));
+    const order = Array.from({ length: COUNT }, (_, i) => i).sort(
+      (a, b) => deltas[a] - deltas[b],
+    );
+
+    const xs = new Array(COUNT).fill(0);
+    for (let k = 1; k < order.length; k++) {
+      const prev = order[k - 1];
+      const curr = order[k];
+      xs[curr] = xs[prev] + halfW(scales[prev]) + gap + halfW(scales[curr]);
+    }
+
+    const activeX = xs[active];
+    for (let i = 0; i < COUNT; i++) xs[i] -= activeX;
+
+    return { xs, scales, deltas };
+  };
+
+  const displayItems = (item, index, active, layout) => {
+    const delta = layout.deltas[index];
+    const dist = Math.abs(delta);
+    const scale = layout.scales[index];
+
     gsap.to(item.position, {
-      x: (index - active) * (planeSettings.width + planeSettings.gap),
-      y: $items.length * -0.1 + piramidalIndex * 0.1,
+      x: layout.xs[index],
+      y: 0,
+      z: -dist * 0.42,
+      duration: reducedMotion.current ? 0.01 : 0.7,
+      overwrite: 'auto',
+    });
+
+    gsap.to(item.rotation, {
+      y: delta * -0.14,
+      z: 0,
+      duration: reducedMotion.current ? 0.01 : 0.7,
+      overwrite: 'auto',
+    });
+
+    gsap.to(item.scale, {
+      x: scale,
+      y: scale,
+      z: 1,
+      duration: reducedMotion.current ? 0.01 : 0.7,
+      overwrite: 'auto',
     });
   };
 
-  /*--------------------
-    RAF
-    --------------------*/
-  useFrame(() => {
-    progress.current = Math.max(0, Math.min(progress.current, 100));
+  const snap = () => {
+    target.current = Math.round(target.current);
+  };
 
-    const active = Math.floor((progress.current / 100) * ($items.length - 1));
-    $items.forEach((item, index) => displayItems(item, index, active));
-    speed.current = lerp(
-      speed.current,
-      Math.abs(oldProgress.current - progress.current),
-      0.05, // Reduced for smoother animation
-    );
+  useFrame((_, delta) => {
+    if (activePlane === null) {
+      target.current += velocity.current;
+      velocity.current *= 0.9;
+      if (Math.abs(velocity.current) < 0.00035) velocity.current = 0;
 
-    oldProgress.current = lerp(oldProgress.current, progress.current, 0.05); // Reduced for softer transitions
+      if (!isDown.current && Math.abs(velocity.current) < 0.002) {
+        const nearest = Math.round(target.current);
+        target.current = lerp(target.current, nearest, reducedMotion.current ? 1 : 0.14);
+      }
+
+      progress.current = lerp(progress.current, target.current, reducedMotion.current ? 1 : 0.16);
+    }
+
+    const active = wrapIndex(progress.current, COUNT);
+    if ($items) {
+      const layout = layoutForActive(active);
+      $items.forEach((item, index) => displayItems(item, index, active, layout));
+    }
+
+    const deltaProg = Math.abs(oldProgress.current - progress.current);
+    speed.current = lerp(speed.current, deltaProg * (1 / Math.max(delta, 0.016)), 0.12);
+    oldProgress.current = progress.current;
+
+    if (wave) {
+      wave.current = Math.min(speed.current * 1.6, 1);
+    }
 
     if ($post.current) {
-      $post.current.thickness = speed.current;
+      $post.current.thickness = Math.min(speed.current * 1.8, 1.1);
     }
   });
 
-  /*--------------------
-    Handle Wheel
-    --------------------*/
   const handleWheel = (e) => {
     if (activePlane !== null) return;
     const isVerticalScroll = Math.abs(e.deltaY) > Math.abs(e.deltaX);
     const wheelProgress = isVerticalScroll ? e.deltaY : e.deltaX;
-    progress.current = progress.current + wheelProgress * speedWheel;
+    velocity.current += wheelProgress * speedWheel;
   };
 
-  /*--------------------
-    Handle Down
-    --------------------*/
   const handleDown = (e) => {
     if (activePlane !== null) return;
     isDown.current = true;
+    velocity.current = 0;
     startX.current = e.clientX || (e.touches && e.touches[0].clientX) || 0;
   };
 
-  /*--------------------
-    Handle Up
-    --------------------*/
   const handleUp = () => {
+    if (!isDown.current) return;
     isDown.current = false;
+    snap();
   };
 
-  /*--------------------
-    Handle Move
-    --------------------*/
   const handleMove = (e) => {
     if (activePlane !== null || !isDown.current) return;
     const x = e.clientX || (e.touches && e.touches[0].clientX) || 0;
     const mouseProgress = (x - startX.current) * speedDrag;
-    progress.current = progress.current + mouseProgress;
+    target.current += mouseProgress;
+    velocity.current = mouseProgress * 0.4;
     startX.current = x;
   };
 
-  /*--------------------
-    Click
-    --------------------*/
+  useEffect(() => {
+    const onKey = (e) => {
+      if (activePlane !== null) {
+        if (e.key === 'Escape') setActivePlane(null);
+        return;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        target.current = Math.round(target.current) + 1;
+        velocity.current = 0;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        target.current = Math.round(target.current) - 1;
+        velocity.current = 0;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activePlane]);
+
   useEffect(() => {
     if (!$items) return;
     if (activePlane !== null && prevActivePlane === null) {
-      progress.current = (activePlane / ($items.length - 1)) * 100; // Calculate the progress.current based on activePlane
+      const current = wrapIndex(progress.current, COUNT);
+      let diff = activePlane - current;
+      const half = COUNT / 2;
+      if (diff > half) diff -= COUNT;
+      if (diff < -half) diff += COUNT;
+      target.current = progress.current + diff;
+      progress.current = target.current;
+      velocity.current = 0;
     }
-  }, [activePlane, $items]);
+  }, [activePlane, $items, prevActivePlane]);
 
-  /*--------------------
-    Render Plane Events
-    --------------------*/
-  const renderPlaneEvents = () => {
-    return (
+  return (
+    <group>
       <mesh
         position={[0, 0, -0.01]}
         onWheel={handleWheel}
@@ -143,16 +230,9 @@ const Carousel = () => {
         onPointerCancel={handleUp}
       >
         <planeGeometry args={[viewport.width, viewport.height]} />
-        <meshBasicMaterial transparent={true} opacity={0} />
+        <meshBasicMaterial transparent opacity={0} />
       </mesh>
-    );
-  };
 
-  /*--------------------
-    Render Slider
-    --------------------*/
-  const renderSlider = () => {
-    return (
       <group ref={setRoot}>
         {images.map((item, i) => (
           <CarouselItem
@@ -166,13 +246,7 @@ const Carousel = () => {
           />
         ))}
       </group>
-    );
-  };
 
-  return (
-    <group>
-      {renderPlaneEvents()}
-      {renderSlider()}
       <PostProcessing ref={$post} />
     </group>
   );
