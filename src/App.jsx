@@ -32,7 +32,12 @@ export default function App() {
     <div className="App">
       <Loading />
       <header className="chrome">
-        <p className="chrome-title">Infinite coverflow</p>
+        <div className="chrome-lead">
+          <p className="chrome-title">Infinite coverflow</p>
+          <p className="chrome-context">
+            Drag to scroll through, click to reveal
+          </p>
+        </div>
         <Hint />
       </header>
       <Canvas
