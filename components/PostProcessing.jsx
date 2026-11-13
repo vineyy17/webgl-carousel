@@ -21,7 +21,8 @@ const PostProcessing = forwardRef((_, ref) => {
         anisotropy={0.1}
         distortion={0.08}
         distortionScale={0.15}
-        temporalDistortion={0.08}
+        // temporalDistortion ghosted previous frames → flash on scroll
+        temporalDistortion={0}
       />
     </mesh>
   );

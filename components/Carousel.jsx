@@ -92,19 +92,29 @@ const Carousel = () => {
     const delta = layout.deltas[index];
     const dist = Math.abs(delta);
     const scale = layout.scales[index];
+    const nextX = layout.xs[index];
+    const dur = reducedMotion.current ? 0.01 : 0.7;
 
-    gsap.to(item.position, {
-      x: layout.xs[index],
-      y: 0,
-      z: -dist * 0.42,
-      duration: reducedMotion.current ? 0.01 : 0.7,
-      overwrite: 'auto',
-    });
+    // Only change vs original: snap across infinite-wrap jumps.
+    // GSAP tweening side→side was the flash (plane flying through center).
+    const wrapJump = Math.abs(nextX - item.position.x) > planeSettings.width * 2.2;
+    if (wrapJump) {
+      gsap.killTweensOf(item.position);
+      item.position.set(nextX, 0, -dist * 0.42);
+    } else {
+      gsap.to(item.position, {
+        x: nextX,
+        y: 0,
+        z: -dist * 0.42,
+        duration: dur,
+        overwrite: 'auto',
+      });
+    }
 
     gsap.to(item.rotation, {
       y: delta * -0.14,
       z: 0,
-      duration: reducedMotion.current ? 0.01 : 0.7,
+      duration: dur,
       overwrite: 'auto',
     });
 
@@ -112,7 +122,7 @@ const Carousel = () => {
       x: scale,
       y: scale,
       z: 1,
-      duration: reducedMotion.current ? 0.01 : 0.7,
+      duration: dur,
       overwrite: 'auto',
     });
   };
