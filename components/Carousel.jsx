@@ -93,10 +93,14 @@ const Carousel = () => {
     const dist = Math.abs(delta);
     const scale = layout.scales[index];
     const nextX = layout.xs[index];
-    const dur = reducedMotion.current ? 0.01 : 0.7;
 
-    // Only change vs original: snap across infinite-wrap jumps.
-    // GSAP tweening side→side was the flash (plane flying through center).
+    // Same easing/feel as before at slow speed (0.7s).
+    // Only when moving fast: shorten so tweens keep up and planes don't cross.
+    const dur = reducedMotion.current
+      ? 0.01
+      : Math.max(0.18, 0.7 / (1 + speed.current * 0.55));
+
+    // Snap infinite wrap jumps — don't tween side→side through the center
     const wrapJump = Math.abs(nextX - item.position.x) > planeSettings.width * 2.2;
     if (wrapJump) {
       gsap.killTweensOf(item.position);
@@ -107,7 +111,8 @@ const Carousel = () => {
         y: 0,
         z: -dist * 0.42,
         duration: dur,
-        overwrite: 'auto',
+        ease: 'power3.out',
+        overwrite: true,
       });
     }
 
@@ -115,7 +120,8 @@ const Carousel = () => {
       y: delta * -0.14,
       z: 0,
       duration: dur,
-      overwrite: 'auto',
+      ease: 'power3.out',
+      overwrite: true,
     });
 
     gsap.to(item.scale, {
@@ -123,7 +129,8 @@ const Carousel = () => {
       y: scale,
       z: 1,
       duration: dur,
-      overwrite: 'auto',
+      ease: 'power3.out',
+      overwrite: true,
     });
   };
 
